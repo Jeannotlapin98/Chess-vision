@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chess Vision">
+    <meta name="theme-color" content="#0d1117">
+    <link rel="manifest" href="manifest.json">
+    <title>Chess Vision - Échecs par Photo</title>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Crimson+Pro:wght@600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --primary: #58a6ff;
+            --primary-hover: #79c0ff;
+            --text: #c9d1d9;
+            --text-dim: #8b949e;
+            --success: #3fb950;
+            --error: #f85149;
+            --warning: #d29922;
+            --border: #30363d;
+        }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 40px 0 30px;
+        }
+        
+        .header h1 {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2.8rem;
+            color: var(--primary);
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+        
+        .header p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1rem;
+        }
+        
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: var(--bg);
+        }
+        
+        .btn-primary:active {
+            background: var(--primary-hover);
+            transform: scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        
+        .btn-danger {
+            background: transparent;
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .camera-wrapper {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: black;
+            margin: 20px 0;
+        }
+        
+        #camera-video {
+            width: 100%;
+            display: block;
+        }
+        
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .calibration-corners {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--primary);
+            cursor: move;
+            pointer-events: all;
+            touch-action: none;
+            transition: border-color 0.2s;
+        }
+        
+        .corner:active {
+            border-color: var(--primary-hover);
+        }
+        
+        .corner.tl { top: 15%; left: 15%; border-right: none; border-bottom: none; }
+        .corner.tr { top: 15%; right: 15%; border-left: none; border-bottom: none; }
+        .corner.br { bottom: 15%; right: 15%; border-left: none; border-top: none; }
+        .corner.bl { bottom: 15%; left: 15%; border-right: none; border-top: none; }
+        
+        .guide-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 70%;
+            border: 2px dashed var(--primary);
+            opacity: 0.3;
+        }
+        
+        .capture-button {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 4px solid white;
+            cursor: pointer;
+            pointer-events: all;
+            transition: transform 0.2s;
+        }
+        
+        .capture-button:active {
+            transform: translateX(-50%) scale(0.9);
+        }
+        
+        .status {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: 1px solid;
+        }
+        
+        .status-info {
+            background: rgba(88, 166, 255, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .status-success {
+            background: rgba(63, 185, 80, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+        
+        .status-error {
+            background: rgba(248, 81, 73, 0.1);
+            border-color: var(--error);
+            color: var(--error);
+        }
+        
+        .status-warning {
+            background: rgba(210, 153, 34, 0.1);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+        
+        .ai-move {
+            background: rgba(88, 166, 255, 0.1);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .ai-move-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+        
+        .ai-move-text {
+            font-family: 'Crimson Pro', serif;
+            font-size: 3rem;
+            font-weight: 600;
+            color: var(--primary);
+            letter-spacing: 4px;
+        }
+        
+        .history {
+            max-height: 250px;
+            overflow-y: auto;
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .history-item {
+            padding: 10px 12px;
+            margin: 6px 0;
+            background: var(--surface);
+            border-radius: 6px;
+            border-left: 3px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .history-item .num {
+            color: var(--text-dim);
+            font-weight: 600;
+            min-width: 30px;
+        }
+        
+        .history-item .moves {
+            flex: 1;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 17, 23, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 20px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+        
+        .result-icon {
+            text-align: center;
+            font-size: 5rem;
+            margin: 20px 0;
+        }
+        
+        .info-text {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        
+        .info-text strong {
+            color: var(--text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>♔ Chess Vision</h1>
+            <p>Photo Analysis</p>
+        </div>
+
+        <!-- Setup Screen -->
+        <div id="setup-screen" class="screen active">
+            <div class="card">
+                <div class="card-title">⚙️ Configuration</div>
+                
+                <div class="form-group">
+                    <label>Votre couleur</label>
+                    <select id="player-color">
+                        <option value="white">♔ Blancs (je commence)</option>
+                        <option value="black">♚ Noirs (l'IA commence)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Niveau de l'IA (1-20)</label>
+                    <select id="difficulty">
+                        <option value="1">1 - Très facile</option>
+                        <option value="3">3 - Facile</option>
+                        <option value="5">5 - Débutant</option>
+                        <option value="8" selected>8 - Intermédiaire</option>
+                        <option value="10">10 - Avancé</option>
+                        <option value="12">12 - Difficile</option>
+                        <option value="15">15 - Expert</option>
+                        <option value="18">18 - Maître</option>
+                        <option value="20">20 - Maximum</option>
+                    </select>
+                </div>
+                
+                <button class="btn btn-primary" onclick="startGame()">Démarrer</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📖 Fonctionnement</div>
+                <p class="info-text">
+                    <strong>1. Calibration</strong><br>
+                    Ajustez les 4 coins de l'échiquier<br><br>
+                    
+                    <strong>2. Jeu</strong><br>
+                    • Jouez votre coup<br>
+                    • Prenez une photo<br>
+                    • L'IA détecte et répond en UCI<br>
+                    • Jouez le coup de l'IA<br>
+                    • Répétez !<br><br>
+                    
+                    <strong>Si détection échoue :</strong><br>
+                    Reprenez la photo
+                </p>
+            </div>
+        </div>
+
+        <!-- Calibration Screen -->
+        <div id="calibration-screen" class="screen">
+            <div class="card">
+                <div class="card-title">📐 Calibration</div>
+                
+                <div id="calibration-status" class="status status-info">
+                    Positionnez les 4 coins sur l'échiquier
+                </div>
+                
+                <div class="camera-wrapper">
+                    <video id="calibration-video" autoplay playsinline></video>
+                    <div class="camera-overlay">
+                        <div class="guide-box"></div>
+                        <div class="calibration-corners">
+                            <div class="corner tl" data-corner="0"></div>
+                            <div class="corner tr" data-corner="1"></div>
+                            <div class="corner br" data-corner="2"></div>
+                            <div class="corner bl" data-corner="3"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="info-text" style="text-align: center; margin: 16px 0;">
+                    Glissez les coins pour qu'ils correspondent<br>
+                    aux coins de votre échiquier
+                </p>
+                
+                <button class="btn btn-primary" onclick="validateCalibration()">
+                    Valider la calibration
+                </button>
+                
+                <button class="btn btn-secondary" onclick="cancelCalibration()">
+                    Annuler
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="card">
+                <div class="card-title">
+                    <span id="turn-icon">♔</span>
+                    <span id="turn-text">Votre tour</span>
+                </div>
+                
+                <div id="game-status"></div>
+                
+                <div id="ai-move-display" class="ai-move hidden">
+                    <div class="ai-move-label">Coup de l'IA</div>
+                    <div class="ai-move-text" id="ai-move-text">e2e4</div>
+                </div>
+                
+                <div class="camera-wrapper hidden" id="game-camera">
+                    <video id="game-video" autoplay playsinline></video>
+                    <div class="camera-overlay">
+                        <button class="capture-button" onclick="capturePhoto()"></button>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" id="take-photo-btn" onclick="openCamera()">
+                    📸 Prendre une photo
+                </button>
+                
+                <button class="btn btn-secondary hidden" id="retry-photo-btn" onclick="retryPhoto()">
+                    🔄 Reprendre la photo
+                </button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📝 Historique</div>
+                <div class="history" id="history-list">
+                    <p class="info-text" style="text-align: center;">
+                        Aucun coup joué
+                    </p>
+                </div>
+            </div>
+            
+            <button class="btn btn-danger" onclick="quitGame()">
+                Abandonner
+            </button>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen">
+            <div class="card">
+                <div class="result-icon" id="result-icon">🏆</div>
+                <div class="card-title" style="text-align: center;" id="result-title">
+                    Partie terminée
+                </div>
+                <p id="result-message" class="info-text" style="text-align: center; margin: 16px 0;"></p>
+                
+                <div class="history" id="final-history"></div>
+                
+                <button class="btn btn-primary" onclick="newGame()">
+                    Nouvelle partie
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-text">Chargement...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js"></script>
+    
+    <script>
+        const game = {
+            chess: null,
+            stockfish: null,
+            playerColor: 'white',
+            difficulty: 8,
+            history: [],
+            corners: null,
+            referencePhoto: null,
+            stream: null,
+            active: false
+        };
+
+        window.addEventListener('load', () => {
+            initStockfish();
+        });
+
+        function initStockfish() {
+            showLoading('Chargement de Stockfish...');
+            
+            try {
+                game.stockfish = new Worker('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
+                
+                game.stockfish.onmessage = (e) => {
+                    const msg = e.data;
+                    if (msg.startsWith('bestmove')) {
+                        const move = msg.split(' ')[1];
+                        if (move && move !== '(none)') {
+                            handleAIMove(move);
+                        }
+                    }
+                };
+                
+                game.stockfish.postMessage('uci');
+                
+                setTimeout(() => {
+                    hideLoading();
+                }, 1000);
+                
+            } catch (error) {
+                hideLoading();
+                alert('Erreur de chargement de Stockfish. Vérifiez votre connexion.');
+            }
+        }
+
+        function requestAIMove() {
+            if (!game.stockfish) return;
+            
+            showLoading('L\'IA réfléchit...');
+            
+            game.stockfish.postMessage(`setoption name Skill Level value ${game.difficulty}`);
+            game.stockfish.postMessage(`position fen ${game.chess.fen()}`);
+            game.stockfish.postMessage('go movetime 1000');
+        }
+
+        function handleAIMove(moveUCI) {
+            hideLoading();
+            
+            try {
+                game.chess.move(moveUCI, { sloppy: true });
+                
+                game.history.push({ player: 'IA', move: moveUCI });
+                
+                document.getElementById('ai-move-display').classList.remove('hidden');
+                document.getElementById('ai-move-text').textContent = moveUCI.toUpperCase();
+                
+                showStatus(`✅ L'IA joue : ${moveUCI.toUpperCase()}`, 'success');
+                
+                updateHistory();
+                updateTurnIndicator();
+                
+                if (checkGameOver()) return;
+                
+                setTimeout(() => {
+                    showStatus('📸 À vous de jouer ! Prenez une photo après votre coup', 'info');
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('❌ Erreur de l\'IA', 'error');
+            }
+        }
+
+        function startGame() {
+            game.playerColor = document.getElementById('player-color').value;
+            game.difficulty = parseInt(document.getElementById('difficulty').value);
+            game.chess = new Chess();
+            game.history = [];
+            game.active = true;
+            
+            showScreen('calibration-screen');
+            openCalibrationCamera();
+        }
+
+        function updateTurnIndicator() {
+            const turn = game.chess.turn();
+            const isPlayerTurn = (turn === 'w' && game.playerColor === 'white') ||
+                                (turn === 'b' && game.playerColor === 'black');
+            
+            const icon = document.getElementById('turn-icon');
+            const text = document.getElementById('turn-text');
+            
+            if (isPlayerTurn) {
+                icon.textContent = game.playerColor === 'white' ? '♔' : '♚';
+                text.textContent = 'Votre tour';
+            } else {
+                icon.textContent = game.playerColor === 'white' ? '♚' : '♔';
+                text.textContent = 'Tour de l\'IA';
+            }
+        }
+
+        function checkGameOver() {
+            if (game.chess.game_over()) {
+                let result = '';
+                let icon = '🤝';
+                
+                if (game.chess.in_checkmate()) {
+                    const winner = game.chess.turn() === 'w' ? 'Noirs' : 'Blancs';
+                    result = `Échec et mat ! ${winner} gagnent !`;
+                    icon = '🏆';
+                } else if (game.chess.in_stalemate()) {
+                    result = 'Pat - Match nul';
+                } else if (game.chess.in_threefold_repetition()) {
+                    result = 'Triple répétition - Match nul';
+                } else if (game.chess.insufficient_material()) {
+                    result = 'Matériel insuffisant - Match nul';
+                } else {
+                    result = 'Match nul';
+                }
+                
+                endGame(result, icon);
+                return true;
+            }
+            return false;
+        }
+
+        function endGame(message, icon) {
+            game.active = false;
+            
+            document.getElementById('result-title').textContent = 'Partie terminée';
+            document.getElementById('result-message').textContent = message;
+            document.getElementById('result-icon').textContent = icon;
+            
+            const finalHistory = document.getElementById('final-history');
+            finalHistory.innerHTML = document.getElementById('history-list').innerHTML;
+            
+            showScreen('result-screen');
+        }
+
+        function quitGame() {
+            if (confirm('Abandonner la partie ?')) {
+                endGame('Partie abandonnée', '😔');
+            }
+        }
+
+        function newGame() {
+            if (game.stream) {
+                game.stream.getTracks().forEach(t => t.stop());
+            }
+            game.history = [];
+            game.referencePhoto = null;
+            showScreen('setup-screen');
+        }
+
+        async function openCalibrationCamera() {
+            try {
+                game.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: 1920, height: 1080 }
+                });
+                
+                document.getElementById('calibration-video').srcObject = game.stream;
+                initCornerDragging();
+                
+            } catch (error) {
+                showStatus('❌ Impossible d\'accéder à la caméra', 'error');
+            }
+        }
+
+        function initCornerDragging() {
+            const corners = document.querySelectorAll('.corner');
+            
+            corners.forEach(corner => {
+                let startX, startY, initialX, initialY;
+                
+                corner.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const rect = corner.getBoundingClientRect();
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                    initialX = rect.left;
+                    initialY = rect.top;
+                });
+                
+                corner.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - startX;
+                    const deltaY = touch.clientY - startY;
+                    
+                    corner.style.left = (initialX + deltaX) + 'px';
+                    corner.style.top = (initialY + deltaY) + 'px';
+                });
+            });
+        }
+
+        function validateCalibration() {
+            const corners = document.querySelectorAll('.corner');
+            game.corners = Array.from(corners).map(c => ({
+                x: parseInt(c.style.left) || c.offsetLeft,
+                y: parseInt(c.style.top) || c.offsetTop
+            }));
+            
+            const video = document.getElementById('calibration-video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            game.referencePhoto = canvas.toDataURL('image/jpeg', 0.9);
+            
+            if (game.stream) {
+                game.stream.getTracks().forEach(t => t.stop());
+                game.stream = null;
+            }
+            
+            showLoading('Calibration terminée...');
+            
+            setTimeout(() => {
+                hideLoading();
+                showScreen('game-screen');
+                
+                if (game.playerColor === 'black') {
+                    showStatus('🤖 L\'IA commence...', 'info');
+                    setTimeout(() => requestAIMove(), 1000);
+                } else {
+                    showStatus('📸 Jouez votre coup puis prenez une photo', 'info');
+                    updateTurnIndicator();
+                }
+            }, 1000);
+        }
+
+        function cancelCalibration() {
+            if (game.stream) {
+                game.stream.getTracks().forEach(t => t.stop());
+                game.stream = null;
+            }
+            showScreen('setup-screen');
+        }
+
+        async function openCamera() {
+            try {
+                game.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: 1920, height: 1080 }
+                });
+                
+                document.getElementById('game-video').srcObject = game.stream;
+                document.getElementById('game-camera').classList.remove('hidden');
+                document.getElementById('take-photo-btn').classList.add('hidden');
+                
+                showStatus('📸 Cadrez et capturez', 'info');
+                
+            } catch (error) {
+                showStatus('❌ Impossible d\'accéder à la caméra', 'error');
+            }
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('game-video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const currentPhoto = canvas.toDataURL('image/jpeg', 0.9);
+            
+            if (game.stream) {
+                game.stream.getTracks().forEach(t => t.stop());
+                game.stream = null;
+            }
+            
+            document.getElementById('game-camera').classList.add('hidden');
+            
+            analyzeMove(game.referencePhoto, currentPhoto);
+        }
+
+        function analyzeMove(before, after) {
+            showLoading('Analyse de la photo...');
+            
+            setTimeout(() => {
+                hideLoading();
+                
+                showStatus('⚠️ Détection difficile. Reprenez la photo avec un meilleur cadrage', 'warning');
+                document.getElementById('retry-photo-btn').classList.remove('hidden');
+                document.getElementById('take-photo-btn').classList.remove('hidden');
+                
+            }, 2000);
+        }
+
+        function retryPhoto() {
+            document.getElementById('retry-photo-btn').classList.add('hidden');
+            document.getElementById('take-photo-btn').classList.remove('hidden');
+            document.getElementById('ai-move-display').classList.add('hidden');
+            showStatus('📸 Reprenez la photo', 'info');
+        }
+
+        function updateHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            
+            for (let i = 0; i < game.history.length; i += 2) {
+                const num = Math.floor(i / 2) + 1;
+                const white = game.history[i];
+                const black = game.history[i + 1];
+                
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <span class="num">${num}.</span>
+                    <span class="moves">
+                        ${white ? white.move.toUpperCase() : '...'}
+                        ${black ? ' ' + black.move.toUpperCase() : ''}
+                    </span>
+                `;
+                list.appendChild(item);
+            }
+            
+            list.scrollTop = list.scrollHeight;
+        }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function showStatus(msg, type) {
+            const status = document.getElementById('game-status');
+            status.className = `status status-${type}`;
+            status.textContent = msg;
+            status.style.display = 'block';
+        }
+
+        function showLoading(msg) {
+            document.getElementById('loading-text').textContent = msg;
+            document.getElementById('loading').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
