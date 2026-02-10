@@ -157,21 +157,25 @@
         .camera-wrapper {
             position: relative;
             width: 100%;
+            /* 4:3 box — assez large pour voir tout l'échiquier en paysage */
+            aspect-ratio: 4 / 3;
             border-radius: 12px;
             overflow: hidden;
-            background: black;
+            background: #000;
             margin: 20px 0;
-            /* Let the video define the height naturally */
         }
         
-        /* Both video elements: full width, natural aspect ratio, no cropping */
+        /* Video remplit la boîte sans jamais zoomer ni rogner */
         #camera-video,
         #calibration-video,
         #game-video {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: auto;
-            display: block;
-            object-fit: contain;  /* never crop */
+            height: 100%;
+            object-fit: contain;
+            background: #000;
         }
         
         .camera-overlay {
@@ -494,6 +498,10 @@
                     le coin correspondant de votre échiquier
                 </p>
                 
+                <button class="btn btn-secondary" onclick="rotateCalibration()" id="rotate-btn" style="margin-bottom:12px;">
+                    🔄 Image à l'envers ? Pivoter
+                </button>
+                
                 <button class="btn btn-primary" onclick="validateCalibration()">
                     Valider la calibration
                 </button>
@@ -740,27 +748,69 @@
 
         async function openCalibrationCamera() {
             try {
-                // Request the back camera without forcing a specific resolution.
-                // The browser / iOS will pick the native sensor resolution.
-                game.stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: 'environment' }
-                    }
-                });
-                
-                const video = document.getElementById('calibration-video');
-                video.srcObject = game.stream;
+                // Sur iOS Safari, il faut demander explicitement un ratio large
+                // et une résolution modeste pour éviter que la caméra zoome.
+                // On essaie d'abord 4:3 720p, puis fallback sans contraintes.
+                let stream;
+                const constraints = [
+                    // Tentative 1 : paysage forcé 4:3
+                    {
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width:  { ideal: 1280 },
+                            height: { ideal: 960 },
+                            aspectRatio: { ideal: 1.3333 }
+                        }
+                    },
+                    // Tentative 2 : 16:9 standard
+                    {
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width:  { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    },
+                    // Tentative 3 : aucune contrainte (iOS choisit)
+                    { video: { facingMode: { ideal: 'environment' } } }
+                ];
 
-                // Wait for the video to know its real dimensions before we
-                // set up corner dragging so percentages are calculated correctly.
+                for (const c of constraints) {
+                    try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+                    catch (_) {}
+                }
+
+                if (!stream) throw new Error('no stream');
+
+                game.stream = stream;
+                const video = document.getElementById('calibration-video');
+                video.srcObject = stream;
+
                 video.addEventListener('loadedmetadata', () => {
+                    // Debug: show actual resolution so user can report issues
+                    const calStatus = document.getElementById('calibration-status');
+                    calStatus.className = 'status status-info';
+                    calStatus.textContent = `📷 ${video.videoWidth}×${video.videoHeight} — Ajustez les 4 coins`;
                     initCornerDragging();
                 }, { once: true });
-                
+
             } catch (error) {
                 const calStatus = document.getElementById('calibration-status');
                 calStatus.className = 'status status-error';
-                calStatus.textContent = '❌ Impossible d\'accéder à la caméra. Vérifiez les permissions dans Réglages → Safari → Caméra.';
+                calStatus.textContent = '❌ Impossible d\'accéder à la caméra. Vérifiez Réglages → Safari → Caméra.';
+            }
+        }
+
+        // Rotation state for the calibration video (in case iOS returns portrait)
+        let calibRotation = 0;
+
+        function rotateCalibration() {
+            calibRotation = (calibRotation + 90) % 360;
+            const video = document.getElementById('calibration-video');
+            // When rotated 90/270 we also need to swap displayed w/h
+            if (calibRotation === 90 || calibRotation === 270) {
+                video.style.transform = `rotate(${calibRotation}deg) scale(${video.clientHeight / video.clientWidth})`;
+            } else {
+                video.style.transform = `rotate(${calibRotation}deg)`;
             }
         }
 
@@ -847,13 +897,35 @@
 
         async function openCamera() {
             try {
-                game.stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: 'environment' }
-                    }
-                });
-                
-                document.getElementById('game-video').srcObject = game.stream;
+                let stream;
+                const constraints = [
+                    {
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width:  { ideal: 1280 },
+                            height: { ideal: 960 },
+                            aspectRatio: { ideal: 1.3333 }
+                        }
+                    },
+                    {
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width:  { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    },
+                    { video: { facingMode: { ideal: 'environment' } } }
+                ];
+
+                for (const c of constraints) {
+                    try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+                    catch (_) {}
+                }
+
+                if (!stream) throw new Error('no stream');
+
+                game.stream = stream;
+                document.getElementById('game-video').srcObject = stream;
                 document.getElementById('game-camera').classList.remove('hidden');
                 document.getElementById('take-photo-btn').classList.add('hidden');
                 
