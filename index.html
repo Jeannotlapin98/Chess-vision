@@ -161,11 +161,17 @@
             overflow: hidden;
             background: black;
             margin: 20px 0;
+            /* Let the video define the height naturally */
         }
         
-        #camera-video {
+        /* Both video elements: full width, natural aspect ratio, no cropping */
+        #camera-video,
+        #calibration-video,
+        #game-video {
             width: 100%;
+            height: auto;
             display: block;
+            object-fit: contain;  /* never crop */
         }
         
         .camera-overlay {
@@ -178,45 +184,50 @@
         }
         
         .calibration-corners {
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
         }
         
         .corner {
             position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 3px solid var(--primary);
+            width: 36px;
+            height: 36px;
+            border: 4px solid var(--primary);
             cursor: move;
             pointer-events: all;
             touch-action: none;
             transition: border-color 0.2s;
+            /* Center the hit-target on the corner point */
+            transform: translate(-50%, -50%);
         }
         
         .corner:active {
             border-color: var(--primary-hover);
         }
         
-        .corner.tl { top: 15%; left: 15%; border-right: none; border-bottom: none; }
-        .corner.tr { top: 15%; right: 15%; border-left: none; border-bottom: none; }
-        .corner.br { bottom: 15%; right: 15%; border-left: none; border-top: none; }
-        .corner.bl { bottom: 15%; left: 15%; border-right: none; border-top: none; }
+        /* Initial positions as % of the overlay – set via JS after video loads */
+        .corner.tl { top: 20%; left: 20%; border-right: none; border-bottom: none; }
+        .corner.tr { top: 20%; left: 80%; border-left: none; border-bottom: none; }
+        .corner.br { top: 80%; left: 80%; border-left: none; border-top: none; }
+        .corner.bl { top: 80%; left: 20%; border-right: none; border-top: none; }
         
         .guide-box {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70%;
-            height: 70%;
+            top: 20%;
+            left: 20%;
+            width: 60%;
+            height: 60%;
             border: 2px dashed var(--primary);
-            opacity: 0.3;
+            opacity: 0.35;
+            pointer-events: none;
         }
         
         .capture-button {
             position: absolute;
-            bottom: 30px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             width: 70px;
@@ -226,11 +237,11 @@
             border: 4px solid white;
             cursor: pointer;
             pointer-events: all;
-            transition: transform 0.2s;
+            transition: opacity 0.2s;
         }
         
         .capture-button:active {
-            transform: translateX(-50%) scale(0.9);
+            opacity: 0.7;
         }
         
         .status {
@@ -462,17 +473,25 @@
                     <div class="camera-overlay">
                         <div class="guide-box"></div>
                         <div class="calibration-corners">
-                            <div class="corner tl" data-corner="0"></div>
-                            <div class="corner tr" data-corner="1"></div>
-                            <div class="corner br" data-corner="2"></div>
-                            <div class="corner bl" data-corner="3"></div>
+                            <div class="corner tl" data-corner="0">
+                                <span class="corner-label" style="position:absolute;top:4px;left:4px;font-size:10px;color:var(--primary);white-space:nowrap;">a8</span>
+                            </div>
+                            <div class="corner tr" data-corner="1">
+                                <span class="corner-label" style="position:absolute;top:4px;right:4px;font-size:10px;color:var(--primary);white-space:nowrap;">h8</span>
+                            </div>
+                            <div class="corner br" data-corner="2">
+                                <span class="corner-label" style="position:absolute;bottom:4px;right:4px;font-size:10px;color:var(--primary);white-space:nowrap;">h1</span>
+                            </div>
+                            <div class="corner bl" data-corner="3">
+                                <span class="corner-label" style="position:absolute;bottom:4px;left:4px;font-size:10px;color:var(--primary);white-space:nowrap;">a1</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <p class="info-text" style="text-align: center; margin: 16px 0;">
-                    Glissez les coins pour qu'ils correspondent<br>
-                    aux coins de votre échiquier
+                    Glissez chaque coin (a1, a8, h1, h8) sur<br>
+                    le coin correspondant de votre échiquier
                 </p>
                 
                 <button class="btn btn-primary" onclick="validateCalibration()">
@@ -721,52 +740,74 @@
 
         async function openCalibrationCamera() {
             try {
+                // Request the back camera without forcing a specific resolution.
+                // The browser / iOS will pick the native sensor resolution.
                 game.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: 1920, height: 1080 }
+                    video: {
+                        facingMode: { ideal: 'environment' }
+                    }
                 });
                 
-                document.getElementById('calibration-video').srcObject = game.stream;
-                initCornerDragging();
+                const video = document.getElementById('calibration-video');
+                video.srcObject = game.stream;
+
+                // Wait for the video to know its real dimensions before we
+                // set up corner dragging so percentages are calculated correctly.
+                video.addEventListener('loadedmetadata', () => {
+                    initCornerDragging();
+                }, { once: true });
                 
             } catch (error) {
-                showStatus('❌ Impossible d\'accéder à la caméra', 'error');
+                const calStatus = document.getElementById('calibration-status');
+                calStatus.className = 'status status-error';
+                calStatus.textContent = '❌ Impossible d\'accéder à la caméra. Vérifiez les permissions dans Réglages → Safari → Caméra.';
             }
         }
 
         function initCornerDragging() {
-            const corners = document.querySelectorAll('.corner');
-            
+            const overlay = document.querySelector('#calibration-screen .calibration-corners');
+            const corners = overlay.querySelectorAll('.corner');
+
             corners.forEach(corner => {
-                let startX, startY, initialX, initialY;
-                
+                // currentX/Y in % of the overlay dimensions
+                let curPctX = parseFloat(corner.style.left)  || parseFloat(getComputedStyle(corner).left);
+                let curPctY = parseFloat(corner.style.top)   || parseFloat(getComputedStyle(corner).top);
+
                 corner.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    const touch = e.touches[0];
-                    const rect = corner.getBoundingClientRect();
-                    startX = touch.clientX;
-                    startY = touch.clientY;
-                    initialX = rect.left;
-                    initialY = rect.top;
-                });
-                
+                    e.stopPropagation();
+                }, { passive: false });
+
                 corner.addEventListener('touchmove', (e) => {
                     e.preventDefault();
-                    const touch = e.touches[0];
-                    const deltaX = touch.clientX - startX;
-                    const deltaY = touch.clientY - startY;
-                    
-                    corner.style.left = (initialX + deltaX) + 'px';
-                    corner.style.top = (initialY + deltaY) + 'px';
-                });
+                    e.stopPropagation();
+                    const touch    = e.touches[0];
+                    const rect     = overlay.getBoundingClientRect();
+                    // Clamp inside the overlay
+                    const relX = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
+                    const relY = Math.max(0, Math.min(touch.clientY - rect.top,  rect.height));
+                    // Store as percentage so positions survive any resize
+                    corner.style.left = (relX / rect.width  * 100) + '%';
+                    corner.style.top  = (relY / rect.height * 100) + '%';
+                }, { passive: false });
             });
         }
 
         function validateCalibration() {
-            const corners = document.querySelectorAll('.corner');
-            game.corners = Array.from(corners).map(c => ({
-                x: parseInt(c.style.left) || c.offsetLeft,
-                y: parseInt(c.style.top) || c.offsetTop
-            }));
+            const overlay  = document.querySelector('#calibration-screen .calibration-corners');
+            const overlayRect = overlay.getBoundingClientRect();
+            const corners  = overlay.querySelectorAll('.corner');
+
+            // Store positions as fractions (0‒1) of the overlay so they map
+            // correctly to the captured canvas regardless of display scaling.
+            game.corners = Array.from(corners).map(c => {
+                const pctX = parseFloat(c.style.left);
+                const pctY = parseFloat(c.style.top);
+                return {
+                    x: pctX / 100,   // 0‒1
+                    y: pctY / 100    // 0‒1
+                };
+            });
             
             const video = document.getElementById('calibration-video');
             const canvas = document.createElement('canvas');
@@ -807,14 +848,16 @@
         async function openCamera() {
             try {
                 game.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: 1920, height: 1080 }
+                    video: {
+                        facingMode: { ideal: 'environment' }
+                    }
                 });
                 
                 document.getElementById('game-video').srcObject = game.stream;
                 document.getElementById('game-camera').classList.remove('hidden');
                 document.getElementById('take-photo-btn').classList.add('hidden');
                 
-                showStatus('📸 Cadrez et capturez', 'info');
+                showStatus('📸 Cadrez l\'échiquier et appuyez sur le bouton', 'info');
                 
             } catch (error) {
                 showStatus('❌ Impossible d\'accéder à la caméra', 'error');
